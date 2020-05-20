@@ -67,6 +67,18 @@ void WemoSwitch::start()
     }
 }
 
+void WemoSwitch::stop()
+{
+    if ( NULL != m_server )
+    {
+        m_server->stop();
+
+        delete m_server;
+
+        m_server = NULL;
+    }
+}
+
 void WemoSwitch::handleEventservice()
 {
     Serial.println(" ########## Responding to eventservice.xml ... ########\n");
@@ -105,52 +117,57 @@ void WemoSwitch::handleEventservice()
 
 void WemoSwitch::handleUpnpControl()
 {
-  Serial.println("########## Responding to  /upnp/control/basicevent1 ... ##########");
+    Serial.println("########## Responding to  /upnp/control/basicevent1 ... ##########");
 
-  String response_xml = "";
-  String request      = m_server->arg(0);
+    String response_xml = "";
+    String request      = m_server->arg(0);
 
-  Serial.print("request:");
-  Serial.println(request);
+    Serial.print("request:");
+    Serial.println(request);
 
-  Serial.println("Responding to Control request");
+    Serial.println("Responding to Control request");
 
 
-  if( 0 < request.indexOf("<BinaryState>1</BinaryState>") )
-  {
-      Serial.println("Got Turn on request");
+    if( 0 < request.indexOf("<BinaryState>1</BinaryState>") )
+    {
+        Serial.println("Got Turn on request");
 
-      m_cb(true);
+        handleRequestState(true);
+    }
+    else if ( 0 < request.indexOf("<BinaryState>0</BinaryState>") )
+    {
+        Serial.println("Got Turn off request");
 
-      response_xml =  "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">"
-                        "<s:Body>"
-                          "<u:SetBinaryStateResponse xmlns:u=\"urn:Belkin:service:basicevent:1\">"
-                            "<BinaryState>1</BinaryState>"
-                          "</u:SetBinaryStateResponse>"
-                        "</s:Body>"
-                      "</s:Envelope>\r\n"
-                      "\r\n";
-  }
-  else if ( 0 < request.indexOf("<BinaryState>0</BinaryState>") )
-  {
-      Serial.println("Got Turn off request");
+        handleRequestState(false);
+    }
+    else
+    {
+        // Do nothing
+    }
+}
 
-      m_cb(false);
 
-      response_xml =  "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">"
-                        "<s:Body>"
-                          "<u:SetBinaryStateResponse xmlns:u=\"urn:Belkin:service:basicevent:1\">"
-                            "<BinaryState>0</BinaryState>"
-                          "</u:SetBinaryStateResponse>"
-                        "</s:Body>"
-                      "</s:Envelope>\r\n"
-                      "\r\n";
-  }
+void WemoSwitch::handleRequestState(bool state)
+{
+    // Toggle relay
+    m_cb(true);
 
-  m_server->send(200, "text/xml", response_xml.c_str());
+    // Reply back with new state
+    String body = 
+        "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"><s:Body>\r\n"
+        "<u:GetBinaryStateResponse xmlns:u=\"urn:Belkin:service:basicevent:1\">\r\n"
+        "<BinaryState>";
 
-  Serial.print("Sending :");
-  Serial.println(response_xml);
+    body += (state ? "1" : "0");
+
+    body += "</BinaryState>\r\n"
+            "</u:GetBinaryStateResponse>\r\n"
+            "</s:Body> </s:Envelope>\r\n";
+
+    m_server->send(200, "text/xml", body.c_str());
+
+    Serial.print("Sending :");
+    Serial.println(body);
 }
 
 

@@ -18,23 +18,25 @@ static const uint32_t  g_port_multi = 1900;
 // ----------------------------------------------------------------------------
 
 WemoManager::WemoManager() :
-    m_switch_cnt(0)
+    m_switch_cnt(0),
+    m_running(false)
 {
-    for (uint32_t i = 0; i < MAX_SWITCHES; ++i)
-    {
-        m_switches[i] = NULL;
-    }
 }
 
 
 WemoManager::~WemoManager()
 {
-    for (uint32_t i = 0; i < MAX_SWITCHES; ++i)
+    // Gracefuly, stop all network services...
+    stop();
+
+    // ...then, delete all stored instances
+    while ( !m_switches.empty() )
     {
-        if ( NULL != m_switches[i] )
-        {
-            delete m_switches[i];
-        }
+        auto it = m_switches.begin();
+
+        delete it->second;
+
+        m_switches.erase(it);
     }
 }
 
@@ -47,10 +49,17 @@ bool WemoManager::start()
 
     if( m_udp.beginMulticast(WiFi.localIP(), g_ip_multi, g_port_multi) )
     {
+        auto it = m_switches.begin();
+
         Serial.print("Udp multicast server started at ");
         Serial.print(g_ip_multi);
         Serial.print(":");
         Serial.println(g_port_multi);
+
+        for (; it != m_switches.end(); ++it)
+        {
+            it->second->start();
+        }
 
         state = true;
     }
@@ -61,22 +70,41 @@ bool WemoManager::start()
         state = false;
     }
 
+    // Save state for later
+    m_running = state;
+
     return state;
 }
 
 
-bool WemoManager::addDevice(String alexaInvokeName, uint32_t port, WemoCallback cb)
+void WemoManager::stop()
+{
+    auto it = m_switches.begin();
+
+    m_udp.stop();
+
+    for (; it != m_switches.end(); ++it)
+    {
+        it->second->stop();
+    }
+
+    m_running = false;
+}
+
+
+bool WemoManager::addDevice(String name, uint32_t port, WemoCallback cb)
 {
     bool status = true;
 
-    if ( MAX_SWITCHES > m_switch_cnt )
+    // Only allow one instance per port
+    if ( m_switches.end() == m_switches.find(port) )
     {
         Serial.print("Adding switch : ");
-        Serial.print(alexaInvokeName);
+        Serial.print(name);
         Serial.print(" index : ");
         Serial.println(m_switch_cnt);
 
-        m_switches[m_switch_cnt++] = new WemoSwitch(alexaInvokeName, port, cb);
+        m_switches[port] = new WemoSwitch(name, port, cb);
     }
     else
     {
@@ -89,6 +117,8 @@ bool WemoManager::addDevice(String alexaInvokeName, uint32_t port, WemoCallback 
 void WemoManager::serverLoop()
 {
     const uint32_t size = m_udp.parsePacket();
+
+    auto it = m_switches.begin();
 
     if ( 0 < size )
     {
@@ -108,22 +138,21 @@ void WemoManager::serverLoop()
             {
                 Serial.println("Got UDP Belkin Request..");
 
-                for(uint32_t n = 0; n < m_switch_cnt; n++)
+                for (; it != m_switches.end(); ++it)
                 {
-                    if ( NULL != m_switches[n] )
-                    {
-                        m_switches[n]->respondToSearch(senderIP, senderPort);
-                    }
+                    it->second->respondToSearch(senderIP, senderPort);
                 }
             }
         }
     }
 
-    for(uint32_t n = 0; n < m_switch_cnt; n++)
+    for(it = m_switches.begin(); it != m_switches.end(); ++it)
     {
-        if ( NULL != m_switches[n] )
-        {
-            m_switches[n]->serverLoop();
-        }
+        it->second->serverLoop();
     }
+}
+
+bool WemoManager::isRunning()
+{
+    return m_running;
 }

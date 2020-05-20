@@ -18,12 +18,14 @@ protected:
         String getName();
 
         void start();
+        void stop();
         void serverLoop();
         void respondToSearch(IPAddress& senderIP, uint32_t senderPort);
 
 private:
         void handleEventservice();
         void handleUpnpControl();
+        void handleRequestState(bool state);
         void handleRoot();
         void handleSetupXml();
 

@@ -4,7 +4,7 @@ This project is completly based on the [forked repo](https://github.com/witnessm
 
 This library enables your esp8266 to simulate a Belkin Wemo switch. It can be discovered as a device by your Amazon Echo/Dot on the Smart home section. It supports calling the emulated device a custom name e.g. "Alexa, turn off test lights", where test lights is the custom name
 
-The library supports emulating up to 14 switches using 1 ESP8266 chip.
+The library supports emulating any number of switches using 1 ESP8266 chip.
 
 ## Installing
 
