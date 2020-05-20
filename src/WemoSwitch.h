@@ -1,36 +1,41 @@
-#ifndef WemoSwitch_H
-#define WemoSwitch_H
+#ifndef __WEMUSWITCH_H_
+#define __WEMUSWITCH_H_
 
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <WiFiUdp.h>
-#include "CallbackFunction.h"
 
+typedef std::function<void(bool)> WemoCallback;
 
-class WemoSwitch {
+class WemoSwitch
+{
+
+protected:
+        WemoSwitch(String name, uint32_t port, WemoCallback cb);
+        ~WemoSwitch();
+
+        String getName();
+
+        void start();
+        void serverLoop();
+        void respondToSearch(IPAddress& senderIP, uint32_t senderPort);
+
 private:
-        ESP8266WebServer *server = NULL;
-        WiFiUDP UDP;
-        String serial;
-        String persistent_uuid;
-        String device_name;
-        unsigned int localPort;
-        CallbackFunction onCallback;
-        CallbackFunction offCallback;
-
-        void startWebServer();
         void handleEventservice();
         void handleUpnpControl();
         void handleRoot();
         void handleSetupXml();
-public:
-        WemoSwitch();
-        WemoSwitch(String alexaInvokeName, unsigned int port, CallbackFunction onCallback, CallbackFunction offCallback);
-        ~WemoSwitch();
-        String getAlexaInvokeName();
-        void serverLoop();
-        void respondToSearch(IPAddress& senderIP, unsigned int senderPort);
+
+        ESP8266WebServer * m_server;
+        WiFiUDP            m_udp;
+        String             m_serial;
+        String             m_persistent_uuid;
+        String             m_device_name;
+        uint32_t           m_local_port;
+        WemoCallback       m_cb;
+
+        friend class WemoManager;
 };
 
-#endif
+#endif /* __WEMUSWITCH_H_ */
